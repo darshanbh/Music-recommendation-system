@@ -10,6 +10,13 @@ from collections import defaultdict
 from flask import request, jsonify
 import requests
 import base64
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
+SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
 
 SPOTIFY_CLIENT_ID = "5f207c0dd0da47df84d1f18d2f3a07e5"
 SPOTIFY_CLIENT_SECRET = "f43414c7182d4b6ea0b387ff456a6d0b"
