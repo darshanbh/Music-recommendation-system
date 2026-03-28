@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Scan - Emotion Detector</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin:0; background: #f6f7fb; }
+        .page { max-width:1100px; margin:30px auto; padding:20px; }
+        .scan-header { display:flex; justify-content:space-between; align-items:center; }
+        .stop-btn { background:#ff5252; color:white; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; font-size:1rem; }
+        .layout { display:grid; grid-template-columns: 1fr 380px; gap:24px; margin-top:18px; align-items:start; }
+        .camera-box { background:#000; border-radius:12px; overflow:hidden; height:560px; display:flex; align-items:center; justify-content:center; }
+        .camera-box img { width:100%; height:100%; object-fit:cover; transform:scaleX(-1); }
+        .info-box { background:white; padding:20px; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.08); }
+        .info-title { font-size:1.2rem; margin-bottom:10px; }
+        .instr-list { display:flex; flex-direction:column; gap:12px; margin-bottom:16px; }
+        .instr-item { display:flex; gap:12px; align-items:flex-start; }
+        .instr-emoji { font-size:1.6rem; width:36px; }
+        .emojis-row { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+        .emoji-card { background:#f1f5ff; padding:12px 14px; border-radius:10px; min-width:100px; text-align:center; }
+        .emoji-char { font-size:2.2rem; }
+        .emoji-label { margin-top:6px; font-size:0.95rem; }
+        .progress { margin-top:14px; }
+        .small-muted { color:#666; font-size:0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="scan-header">
+            <div>
+                <h2>Live Scan</h2>
+                <div class="small-muted">Look at the camera and follow the instructions </div>
+            </div>
+            <div>
+                <button class="stop-btn" id="stopBtn">⏹️ Stop Scan</button>
+            </div>
+        </div>
+
+        <div class="layout">
+            <div class="camera-box">
+                <img src="/video_feed" alt="Camera Feed" id="cameraFeed">
+            </div>
+
+            <div class="info-box">
+                <div class="info-title">📋 Instructions</div>
+                <div class="instr-list">
+                    <div class="instr-item"><div class="instr-emoji">💡</div><div>Good lighting on your face.</div></div>
+                    <div class="instr-item"><div class="instr-emoji">📐</div><div>Keep 30–60 cm distance from camera.</div></div>
+                    <div class="instr-item"><div class="instr-emoji">🎯</div><div>Keep your face centered.</div></div>
+                    <div class="instr-item"><div class="instr-emoji">😊</div><div>Make clear expressions for better accuracy.</div></div>
+                </div>
+
+                <div class="info-title">😊 Live Emotions</div>
+                <div id="liveEmojis" class="emojis-row">
+                    <!-- Emoji cards rendered here -->
+                </div>
+
+                <div class="progress">
+                    <div class="small-muted">Scan progress</div>
+                    <div style="height:14px; background:#eee; border-radius:8px; overflow:hidden; margin-top:8px;">
+                        <div id="progressFill" style="height:100%; width:0%; background:linear-gradient(90deg,#667eea,#764ba2);"></div>
+                    </div>
+                    <div id="progressText" class="small-muted" style="margin-top:8px;">0%</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function startBackendScan(){
+            await fetch('/start_scan',{method:'POST'}).catch(()=>{});
+        }
+
+        async function stopBackendScan(){
+            await fetch('/stop_scan',{method:'POST'}).catch(()=>{});
+        }
+
+        function renderEmojis(data){
+            const container = document.getElementById('liveEmojis');
+            container.innerHTML='';
+            const order = ['Angry','Disgust','Fear','Happy','Neutral','Sad','Surprise'];
+            const emojis = {'Angry':'😠','Disgust':'🤮','Fear':'😨','Happy':'😊','Neutral':'😐','Sad':'😢','Surprise':'😮'};
+            order.forEach(e=>{
+                const pct = data.emotion_percentages && data.emotion_percentages[e] ? data.emotion_percentages[e] : 0;
+                const card = document.createElement('div');
+                card.className='emoji-card';
+                card.innerHTML = `<div class='emoji-char'>${emojis[e]}</div><div class='emoji-label'>${e}<br>${pct}%</div>`;
+                container.appendChild(card);
+            });
+        }
+
+        async function poll(){
+            try{
+                const res = await fetch('/get_scan_data');
+                const data = await res.json();
+                const p = data.scan_progress || 0;
+                document.getElementById('progressFill').style.width = p+'%';
+                document.getElementById('progressText').innerText = p+'%';
+                renderEmojis(data);
+                if(p < 100){ setTimeout(poll,400); }
+                else { setTimeout(()=>{ window.location.href = '/'; }, 1200); }
+            }catch(err){ setTimeout(poll,800); }
+        }
+
+        document.getElementById('stopBtn').addEventListener('click', async ()=>{
+            await stopBackendScan();
+            window.location.href = '/';
+        });
+
+        // Start on load
+        (async ()=>{
+            await startBackendScan();
+            poll();
+        })();
+    </script>
+</body>
+</html>

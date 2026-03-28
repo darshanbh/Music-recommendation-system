@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎭 Emotion Detection & Music</title>
+
+    <style>
+        /* ===== BASIC RESET & THEME ===== */
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg,#667eea,#764ba2);
+            min-height:100vh;
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            padding:20px;
+        }
+
+        .container {
+            background:white;
+            max-width:900px;
+            width:100%;
+            padding:30px;
+            border-radius:20px;
+            box-shadow:0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        h1 { text-align:center; margin-bottom:10px; color: #333; }
+        .subtitle { text-align:center; color:#666; margin-bottom:25px; }
+
+        /* ===== CONTROLS ===== */
+        .controls { text-align:center; margin-bottom: 20px; display: flex; justify-content: center; gap: 10px; align-items: center; }
+        select { padding: 10px; border-radius: 10px; border: 1px solid #ddd; }
+
+        .btn {
+            padding:12px 25px;
+            border:none;
+            border-radius:40px;
+            cursor:pointer;
+            font-weight:600;
+            transition: transform 0.2s;
+        }
+        .btn:active { transform: scale(0.95); }
+        .btn-primary { background:linear-gradient(135deg,#667eea,#764ba2); color:white; }
+        .btn-danger { background:linear-gradient(135deg,#ff416c,#ff4b2b); color:white; }
+
+        /* ===== PROGRESS BAR ===== */
+        #progressSection { display: none; margin: 20px 0; }
+        #progressSection.active { display: block; }
+        .progress-container { background: #eee; border-radius: 20px; height: 20px; overflow: hidden; }
+        #progressFill { 
+            background: #764ba2; height: 100%; width: 0%; 
+            transition: width 0.3s; color: white; font-size: 12px; text-align: center; line-height: 20px;
+        }
+
+        /* ===== EMOTION GRID ===== */
+        .emotion-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:10px; margin-top: 15px;}
+        .emotion-card { background:#f8f9fa; border-radius:12px; padding:10px; text-align:center; border: 2px solid transparent; }
+        .emotion-card.dominant { border-color: #667eea; background: #f0f2ff; box-shadow: 0 4px 10px rgba(102,126,234,0.2); }
+        .emotion-emoji { font-size:2em; }
+        .emotion-percentage { font-size:1.1em; font-weight:700; color: #764ba2; }
+
+        /* ===== SONGS ===== */
+        #resultsSection { display: none; margin-top: 30px; }
+        #resultsSection.active { display: block; }
+        .song-list { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; }
+        .song-card { background: #191414; color: white; padding: 15px; border-radius: 12px; }
+
+        /* ===== MODAL ===== */
+        .scan-modal { position:fixed; inset:0; background:rgba(0,0,0,0.9); display:none; z-index:9999; }
+        .scan-modal.active { display:flex; }
+        .scan-modal-content { width:100%; height:100%; display:grid; grid-template-columns: 1.2fr 0.8fr; }
+        .scan-camera-feed { width:100%; height:100%; object-fit:cover; transform:scaleX(-1); background: #222; }
+        .scan-info-section { background:white; padding:30px; display:flex; flex-direction:column; gap:20px; overflow-y: auto; }
+        .scan-close-btn { position:absolute; top:20px; right:20px; background:white; border:none; width:40px; height:40px; border-radius:50%; cursor:pointer; font-weight: bold; }
+    </style>
+</head>
+
+<body>
+<div class="container">
+    <h1>🎭 Emotion Detector</h1>
+    <p class="subtitle">📹 Scan Your Face • 😊 Detect Emotion • 🎵 Get Music</p>
+
+    <div class="controls">
+        <select id="language">
+            <option value="english">English</option>
+            <option value="hindi">Hindi</option>
+            
+        </select>
+        <button class="btn btn-primary" id="startBtn">▶ START SCAN</button>
+        <button class="btn btn-danger" onclick="resetData()">🔄 RESET</button>
+    </div>
+
+    <div id="statusSummary" style="text-align:center; margin-bottom: 20px;">
+        Dominant Emotion: <b id="dominantEmotion">None</b> | 
+        Confidence: <b id="dominantPercent">0%</b>
+    </div>
+
+    <div id="progressSection">
+        <p style="margin-bottom:5px ;text-align:center">Scanning your vibes...</p>
+        <div class="progress-container">
+            <div id="progressFill">0%</div>
+        </div>
+    </div>
+
+    <div id="resultsSection">
+        <h3>📊 Analysis Results</h3>
+        <div class="emotion-grid" id="emotionGrid"></div>
+        
+        <h3 style="margin-top:25px">🎵 Recommended for You</h3>
+        <div class="song-list" id="songList"></div>
+    </div>
+
+    <div id="noData" style="text-align:center; color:#999; margin-top: 40px;">
+        <p>No scan data available. Click Start to begin!</p>
+    </div>
+</div>
+
+<div class="scan-modal" id="scanModal">
+    <button class="scan-close-btn" onclick="stopScan()">✕</button>
+    <div class="scan-modal-content">
+        <img src="/video_feed" class="scan-camera-feed" alt="Camera Feed">
+        <div class="scan-info-section">
+            <h3>🎯 Live Detection</h3>
+            <div class="emotion-grid" id="liveEmotionGrid"></div>
+            <div id="scanTimer" style="font-weight: bold; color: #ff416c;">⏱️ 15s remaining</div>
+            <button class="btn btn-danger" onclick="stopScan()">⏹ STOP SCAN</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let scanPoller = null;
+let isScanning = false;
+const emotions = ["Angry", "Disgust", "Fear", "Happy", "Neutral", "Sad", "Surprise"];
+const emojis = { Angry:"😠", Disgust:"🤮", Fear:"😨", Happy:"😊", Neutral:"😐", Sad:"😢", Surprise:"😮" };
+
+function buildGrid(id) {
+    const g = document.getElementById(id);
+    if (!g) return;
+    g.innerHTML = "";
+    emotions.forEach(e => {
+        g.innerHTML += `
+        <div class="emotion-card" id="${id}-${e}">
+            <div class="emotion-emoji">${emojis[e]}</div>
+            <div style="font-size:0.8em; color:#555">${e}</div>
+            <div class="emotion-percentage" id="${id}-pct-${e}">0%</div>
+        </div>`;
+    });
+}
+
+function updateGrid(id, data) {
+    if (!data) return;
+    let maxE = "Neutral", maxV = -1;
+    emotions.forEach(e => {
+        const v = data[e] || data[e.toLowerCase()] || 0;
+        const pctEl = document.getElementById(`${id}-pct-${e}`);
+        if(pctEl) pctEl.innerText = v.toFixed(1) + "%";
+        
+        const card = document.getElementById(`${id}-${e}`);
+        if(card) card.classList.remove("dominant");
+        
+        if (v > maxV) { maxV = v; maxE = e; }
+    });
+    const domCard = document.getElementById(`${id}-${maxE}`);
+    if(domCard) domCard.classList.add("dominant");
+}
+
+async function startScan() {
+    if (isScanning) return;
+    isScanning = true;
+
+    const language = document.getElementById("language").value;
+    
+    // UI Reset
+    buildGrid("emotionGrid");
+    buildGrid("liveEmotionGrid");
+    document.getElementById("noData").style.display = "none";
+    document.getElementById("resultsSection").classList.remove("active");
+    document.getElementById("progressSection").classList.add("active");
+    document.getElementById("scanModal").classList.add("active");
+
+    try {
+        await fetch("/start_scan", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ language })
+        });
+        scanPoller = setInterval(fetchScanResult, 1000);
+    } catch (e) {
+        console.error("Failed to start scan", e);
+    }
+}
+
+function fetchScanResult() {
+    fetch("/get_scan_data")
+        .then(res => res.json())
+        .then(data => {
+            const progress = data.scan_progress || 0;
+            
+            // Update Progress UI
+            document.getElementById("progressFill").style.width = progress + "%";
+            document.getElementById("progressFill").innerText = progress + "%";
+            
+            // Update Timer
+            const remaining = Math.max(0, 15 - Math.floor((progress * 15) / 100));
+            document.getElementById("scanTimer").innerText = `⏱️ ${remaining}s remaining`;
+
+            // Update Grids
+            updateGrid("liveEmotionGrid", data.emotion_percentages);
+            updateGrid("emotionGrid", data.emotion_percentages);
+
+            // Update Summary
+            document.getElementById("dominantEmotion").innerText = data.dominant_emotion || "None";
+            const pct = data.emotion_percentages?.[data.dominant_emotion] || 0;
+            document.getElementById("dominantPercent").innerText = pct.toFixed(1) + "%";
+
+            if (progress >= 100 || data.scan_done) {
+                completeScan(data);
+            }
+        })
+        .catch(err => console.error("Polling error:", err));
+}
+
+function completeScan(data) {
+    clearInterval(scanPoller);
+    isScanning = false;
+    document.getElementById("scanModal").classList.remove("active");
+    document.getElementById("progressSection").classList.remove("active");
+    document.getElementById("resultsSection").classList.add("active");
+    
+    if (data.recommended_songs) {
+        renderSongs(data.recommended_songs);
+    }
+}
+
+async function stopScan() {
+    clearInterval(scanPoller);
+    isScanning = false;
+    await fetch("/stop_scan", { method: "POST" });
+    document.getElementById("scanModal").classList.remove("active");
+}
+
+function renderSongs(songs) {
+    const container = document.getElementById("songList");
+    container.innerHTML = "";
+
+    if (!songs || songs.length === 0) {
+        container.innerHTML = "<p>No songs found for this mood.</p>";
+        return;
+    }
+
+    songs.forEach(song => {
+        let embedUrl = "";
+        try {
+            // Clean logic for Spotify Link to Embed
+            if(song.url && song.url.includes("spotify.com")) {
+                const parts = new URL(song.url).pathname.split("/").filter(Boolean);
+                if(parts.length >= 2) {
+                    embedUrl = `https://open.spotify.com/embed/${parts[0]}/${parts[1]}`;
+                }
+            }
+        } catch (e) { console.error("URL Error", e); }
+
+        const card = document.createElement("div");
+        card.className = "song-card";
+        card.innerHTML = `
+            <div style="font-weight:600; margin-bottom:4px;">🎵 ${song.title}</div>
+            <div style="color:#aaa; font-size:0.9em; margin-bottom:10px;">🎤 ${song.artist}</div>
+            ${embedUrl ? 
+                `<iframe src="${embedUrl}" width="100%" height="80" frameborder="0" allow="encrypted-media"></iframe>` 
+                : `<p style="font-size:0.7em">Link: <a href="${song.url}" target="_blank" style="color:#667eea">Open Spotify</a></p>`
+            }
+        `;
+        container.appendChild(card);
+    });
+}
+
+async function resetData() {
+    clearInterval(scanPoller);
+    isScanning = false;
+    await fetch("/reset_data", { method: "POST" });
+    location.reload(); 
+}
+
+document.getElementById("startBtn").onclick = startScan;
+</script>
+</body>
+</html>
