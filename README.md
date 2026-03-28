@@ -50,9 +50,9 @@ A Convolutional Neural Network (CNN) model detects emotions such as **happy, sad
 
 > Add your screenshots inside a folder named `screenshots`
 
-![Music Recommendation](1%20PROJECT%20MAJOR/music-detection-homepage.jpeg)
-![Emotion Detection](1%20PROJECT%20MAJOR/music-detection.jpeg)
-![Music results from spotify](1%20PROJECT%20MAJOR/music-results.png)
+![Music Recommendation](screenshots/music-detection-homepage.jpeg)
+![Emotion Detection](screenshots/music-detection.jpeg)
+![Music results from spotify](screenshots/music-results.png)
 
 
 
